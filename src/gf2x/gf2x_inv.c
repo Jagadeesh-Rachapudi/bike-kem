@@ -69,9 +69,14 @@ _INLINE_ void repeated_squaring(OUT pad_r_t *c,
 //   exp0_l = [inverse_mod((2^k) % r, r) for k in exp0_k]
 //   exp1_k = [(r-2)%(2^i) if ((r-2) & (1<<i)) else 0 for i in range(max_i)]
 //   exp1_l = [inverse_mod((2^k) % r, r) if k != 0 else 0 for k in exp1_k]
+//   print("#  define MAX_I (" + str(max_i) + ")")
+//   print("#  define EXP0_K_VALS " + str(exp0_k)[1:-1])
+//   print("#  define EXP0_L_VALS " + str(exp0_l)[1:-1])
+//   print("#  define EXP1_K_VALS " + str(exp1_k)[1:-1])
+//   print("#  define EXP1_L_VALS " + str(exp1_l)[1:-1])
 
-#if(LEVEL == 1)
-// The parameters below are hard-coded for R=12323
+#if (R_BITS == 12323)
+// These parameters below are hard-coded for R=12323
 bike_static_assert((R_BITS == 12323), gf2x_inv_r_doesnt_match_parameters);
 
 // MAX_I = floor(log(r-2)) + 1
@@ -83,33 +88,45 @@ bike_static_assert((R_BITS == 12323), gf2x_inv_r_doesnt_match_parameters);
 #  define EXP1_K_VALS 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 33, 4129
 #  define EXP1_L_VALS 0, 0, 0, 0, 0, 6162, 0, 0, 0, 0, 0, 0, 242, 5717
 
-#elif(LEVEL == 3)
-// The parameters below are hard-coded for R=24659
-bike_static_assert((R_BITS == 24659), gf2x_inv_r_doesnt_match_parameters);
+#elif (R_BITS == 10499)
 
-// MAX_I = floor(log(r-2)) + 1
+#  define MAX_I (14)
+#  define EXP0_K_VALS 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192
+#  define EXP0_L_VALS 5250, 2625, 3281, 3486, 4853, 2352, 9430, 8869, 653, 6449, 3062, 237, 3674, 7061
+#  define EXP1_K_VALS 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 257, 0, 2305
+#  define EXP1_L_VALS 0, 0, 0, 0, 0, 0, 0, 0, 5250, 0, 0, 5576, 0, 9137
+
+#elif (R_BITS == 10627)
+
+#  define MAX_I (14)
+#  define EXP0_K_VALS 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192
+#  define EXP0_L_VALS 5314, 2657, 3321, 8842, 8752, 8715, 56, 3136, 4521, 3720, 2046, 9705, 10551, 5776
+#  define EXP1_K_VALS 0, 0, 0, 0, 0, 0, 0, 1, 129, 0, 0, 385, 0, 2433
+#  define EXP1_L_VALS 0, 0, 0, 0, 0, 0, 0, 5314, 1568, 0, 0, 719, 0, 6583
+
+#elif (R_BITS == 20233)
+
 #  define MAX_I (15)
-#  define EXP0_K_VALS \
-     1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384
-#  define EXP0_L_VALS                                                           \
-     12330, 6165, 7706, 3564, 2711, 1139, 15053, 1258, 4388, 20524, 9538, 6393, \
-     10486, 1715, 6804
-#  define EXP1_K_VALS 0, 0, 0, 0, 1, 0, 17, 0, 0, 0, 0, 0, 0, 81, 8273
-#  define EXP1_L_VALS 0, 0, 0, 0, 12330, 0, 13685, 0, 0, 0, 0, 0, 0, 23678, 19056
+#  define EXP0_K_VALS 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384
+#  define EXP0_L_VALS 10117, 15175, 8852, 15728, 1326, 18238, 14357, 9878, 11358, 18789, 1137, 18090, 19791, 13267, 6422
+#  define EXP1_K_VALS 0, 1, 3, 0, 0, 0, 0, 0, 7, 263, 775, 1799, 0, 0, 3847
+#  define EXP1_L_VALS 0, 10117, 17704, 0, 0, 0, 0, 0, 11223, 2934, 12234, 9987, 0, 0, 4373
 
-#else
-// The parameters below are hard-coded for R=40973
-bike_static_assert((R_BITS == 40973), gf2x_inv_r_doesnt_match_parameters);
+#elif (R_BITS == 20107)
 
-// MAX_I = floor(log(r-2)) + 1
-#  define MAX_I (16)
-#  define EXP0_K_VALS \
-     1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768
-#  define EXP0_L_VALS                                                         \
-     20487, 30730, 28169, 9443, 13001, 12376, 8302, 6618, 38760, 21582, 1660, \
-     10409, 14669, 30338, 17745, 7520
-#  define EXP1_K_VALS 0, 1, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 8203
-#  define EXP1_L_VALS 0, 20487, 0, 15365, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6302, 0, 10058
+#  define MAX_I (15)
+#  define EXP0_K_VALS 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384
+#  define EXP0_L_VALS 10054, 5027, 16337, 17358, 16876, 3828, 15688, 3664, 13527, 6029, 15492, 4912, 19451, 8089, 3743
+#  define EXP1_K_VALS 0, 0, 0, 1, 0, 0, 0, 9, 0, 137, 649, 1673, 0, 0, 3721
+#  define EXP1_L_VALS 0, 0, 0, 10054, 0, 0, 0, 8679, 0, 10689, 1046, 18497, 0, 0, 13838
+
+#elif (R_BITS == 20261)
+
+#  define MAX_I (15)
+#  define EXP0_K_VALS 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384
+#  define EXP0_L_VALS 10131, 15196, 3799, 6569, 16092, 16884, 17447, 16806, 3296, 3720, 137, 18769, 17615, 11271, 19232
+#  define EXP1_K_VALS 0, 1, 0, 0, 0, 3, 0, 0, 35, 291, 803, 1827, 0, 0, 3875
+#  define EXP1_L_VALS 0, 10131, 0, 0, 0, 7598, 0, 0, 12241, 6685, 7953, 15728, 0, 0, 16323
 
 #endif
 

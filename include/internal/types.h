@@ -49,7 +49,6 @@ typedef struct e_s {
 
 typedef struct ct_s {
   r_t c0;
-  m_t c1;
 } ct_t;
 
 typedef r_t pk_t;
@@ -72,7 +71,6 @@ typedef struct sk_s {
   compressed_idx_d_ar_t wlist;
   r_t                   bin[N0];
   pk_t                  pk;
-  m_t                   sigma;
 } sk_t;
 
 typedef ALIGN(sizeof(idx_t)) sk_t aligned_sk_t;
@@ -96,9 +94,9 @@ typedef struct pad_e_s {
 #define PE1_RAW(e) ((e)->val[1].val.raw)
 
 typedef struct func_k_s {
-  m_t m;
+  r_t e0;
+  r_t e1;
   r_t c0;
-  m_t c1;
 } func_k_t;
 
 #if defined(BIND_PK_AND_M)

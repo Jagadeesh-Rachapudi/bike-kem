@@ -40,19 +40,6 @@
 #include "gf2x.h"
 #include "utilities.h"
 
-// Decoding (bit-flipping) parameter
-#if defined(BG_DECODER)
-#  if(LEVEL == 1)
-#    define MAX_IT 3
-#  elif(LEVEL == 3)
-#    define MAX_IT 4
-#  else
-#    error "Level can only be 1/3"
-#  endif
-#elif defined(BGF_DECODER)
-#  define MAX_IT 5
-#endif
-
 void compute_syndrome(OUT syndrome_t *syndrome,
                       IN const pad_r_t *c0,
                       IN const pad_r_t *h0,
@@ -259,7 +246,7 @@ void decode(OUT e_t *e, IN const ct_t *ct, IN const sk_t *sk)
   // Reset (init) the error because it is xored in the find_err functions.
   bike_memset(e, 0, sizeof(*e));
 
-  for(uint32_t iter = 0; iter < MAX_IT; iter++) {
+  for(uint32_t iter = 0; iter < DECODER_NUM_ITER; iter++) {
     const uint8_t threshold = get_threshold(&s);
 
     DMSG("    Iteration: %d\n", iter);

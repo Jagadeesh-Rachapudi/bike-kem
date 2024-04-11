@@ -64,35 +64,15 @@ _INLINE_ ret_t function_h(OUT pad_e_t *e, IN const m_t *m, IN const pk_t *pk)
   return generate_error_vector(e, &seed);
 }
 
-// out = L(e)
-_INLINE_ ret_t function_l(OUT m_t *out, IN const pad_e_t *e)
-{
-  DEFER_CLEANUP(sha_dgst_t dgst = {0}, sha_dgst_cleanup);
-  DEFER_CLEANUP(e_t tmp, e_cleanup);
-
-  // Take the padding away
-  tmp.val[0] = e->val[0].val;
-  tmp.val[1] = e->val[1].val;
-
-  GUARD(sha(&dgst, sizeof(tmp), (uint8_t *)&tmp));
-
-  // Truncate the SHA384 digest to a 256-bits m_t
-  bike_static_assert(sizeof(dgst) >= sizeof(*out), dgst_size_lt_m_size);
-  bike_memcpy(out->raw, dgst.u.raw, sizeof(*out));
-
-  return SUCCESS;
-}
-
-// Generate the Shared Secret K(m, c0, c1)
-_INLINE_ ret_t function_k(OUT ss_t *out, IN const m_t *m, IN const ct_t *ct)
+// Generate the Shared Secret K(m, c0)
+_INLINE_ ret_t function_k(OUT ss_t *out, IN const pad_e_t *e, IN const ct_t *ct)
 {
   DEFER_CLEANUP(func_k_t tmp, func_k_cleanup);
   DEFER_CLEANUP(sha_dgst_t dgst = {0}, sha_dgst_cleanup);
 
-  // Copy every element, padded to the nearest byte
-  tmp.m  = *m;
+  tmp.e0 = e->val[0].val;
+  tmp.e1 = e->val[1].val;
   tmp.c0 = ct->c0;
-  tmp.c1 = ct->c1;
 
   GUARD(sha(&dgst, sizeof(tmp), (uint8_t *)&tmp));
 
@@ -106,8 +86,7 @@ _INLINE_ ret_t function_k(OUT ss_t *out, IN const m_t *m, IN const ct_t *ct)
 
 _INLINE_ ret_t encrypt(OUT ct_t *ct,
                        IN const pad_e_t *e,
-                       IN const pk_t *pk,
-                       IN const m_t *m)
+                       IN const pk_t *pk)
 {
   // Pad the public key and the ciphertext
   pad_r_t p_ct = {0};
@@ -121,32 +100,9 @@ _INLINE_ ret_t encrypt(OUT ct_t *ct,
 
   ct->c0 = p_ct.val;
 
-  // c1 = L(e0, e1)
-  GUARD(function_l(&ct->c1, e));
-
-  // m xor L(e0, e1)
-  for(size_t i = 0; i < sizeof(*m); i++) {
-    ct->c1.raw[i] ^= m->raw[i];
-  }
-
   print("e0: ", (const uint64_t *)PE0_RAW(e), R_BITS);
   print("e1: ", (const uint64_t *)PE1_RAW(e), R_BITS);
   print("c0:  ", (uint64_t *)ct->c0.raw, R_BITS);
-  print("c1:  ", (uint64_t *)ct->c1.raw, M_BITS);
-
-  return SUCCESS;
-}
-
-_INLINE_ ret_t reencrypt(OUT m_t *m, IN const pad_e_t *e, IN const ct_t *l_ct)
-{
-  DEFER_CLEANUP(m_t tmp, m_cleanup);
-
-  GUARD(function_l(&tmp, e));
-
-  // m' = c1 ^ L(e')
-  for(size_t i = 0; i < sizeof(*m); i++) {
-    m->raw[i] = tmp.raw[i] ^ l_ct->c1.raw[i];
-  }
 
   return SUCCESS;
 }
@@ -175,9 +131,6 @@ int crypto_kem_keypair(OUT unsigned char *pk, OUT unsigned char *sk)
                             l_sk.wlist[0].val, l_sk.wlist[1].val,
                             &seeds.seed[0]));
 
-  // Generate sigma
-  convert_seed_to_m_type(&l_sk.sigma, &seeds.seed[1]);
-
   // Calculate the public key
   gf2x_mod_inv(&h0inv, &h0);
   gf2x_mod_mul(&h, &h1, &h0inv);
@@ -196,7 +149,6 @@ int crypto_kem_keypair(OUT unsigned char *pk, OUT unsigned char *sk)
   print("h1: ", (uint64_t *)&l_sk.bin[1], R_BITS);
   print("h0 wlist:", (uint64_t *)&l_sk.wlist[0], SIZEOF_BITS(compressed_idx_d_t));
   print("h1 wlist:", (uint64_t *)&l_sk.wlist[1], SIZEOF_BITS(compressed_idx_d_t));
-  print("sigma: ", (uint64_t *)l_sk.sigma.raw, M_BITS);
 
   return SUCCESS;
 }
@@ -228,10 +180,10 @@ int crypto_kem_enc(OUT unsigned char *     ct,
   GUARD(function_h(&e, &m, &l_pk));
 
   // Calculate the ciphertext
-  GUARD(encrypt(&l_ct, &e, &l_pk, &m));
+  GUARD(encrypt(&l_ct, &e, &l_pk));
 
   // Generate the shared secret
-  GUARD(function_k(&l_ss, &m, &l_ct));
+  GUARD(function_k(&l_ss, &e, &l_ct));
 
   print("ss: ", (uint64_t *)l_ss.raw, SIZEOF_BITS(l_ss));
 
@@ -255,8 +207,6 @@ int crypto_kem_dec(OUT unsigned char *     ss,
   DEFER_CLEANUP(ss_t l_ss, ss_cleanup);
   DEFER_CLEANUP(aligned_sk_t l_sk, sk_cleanup);
   DEFER_CLEANUP(e_t e, e_cleanup);
-  DEFER_CLEANUP(m_t m_prime, m_cleanup);
-  DEFER_CLEANUP(pad_e_t e_tmp, pad_e_cleanup);
   DEFER_CLEANUP(pad_e_t e_prime = {0}, pad_e_cleanup);
 
   // Copy the data from the input buffers. This is required in order to avoid
@@ -271,24 +221,8 @@ int crypto_kem_dec(OUT unsigned char *     ss,
   e_prime.val[0].val = e.val[0];
   e_prime.val[1].val = e.val[1];
 
-  GUARD(reencrypt(&m_prime, &e_prime, &l_ct));
-
-  // Check if H(m') is equal to (e0', e1')
-  // (in constant-time)
-  GUARD(function_h(&e_tmp, &m_prime, &l_sk.pk));
-  uint32_t success_cond;
-  success_cond = secure_cmp(PE0_RAW(&e_prime), PE0_RAW(&e_tmp), R_BYTES);
-  success_cond &= secure_cmp(PE1_RAW(&e_prime), PE1_RAW(&e_tmp), R_BYTES);
-
-  // Compute either K(m', C) or K(sigma, C) based on the success condition
-  uint32_t mask = secure_l32_mask(0, success_cond);
-  for(size_t i = 0; i < M_BYTES; i++) {
-    m_prime.raw[i] &= u8_barrier(~mask);
-    m_prime.raw[i] |= (u8_barrier(mask) & l_sk.sigma.raw[i]);
-  }
-
   // Generate the shared secret
-  GUARD(function_k(&l_ss, &m_prime, &l_ct));
+  GUARD(function_k(&l_ss, &e_prime, &l_ct));
 
   // Copy the data into the output buffer
   bike_memcpy(ss, &l_ss, sizeof(l_ss));

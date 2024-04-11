@@ -18,9 +18,23 @@
 #  define LEVEL 1
 #endif
 
+#if !(defined(RELIABILITY_LEVEL))
+# define RELIABILITY_LEVEL 5
+#endif
+
 #if(LEVEL == 1)
-// 64-bits of post-quantum security parameters (BIKE spec):
-#  define R_BITS 12323
+
+#  if (RELIABILITY_LEVEL == 5)
+#    define R_BITS 10499
+#    define DECODER_NUM_ITER 3
+#  elif (RELIABILITY_LEVEL == 6)
+#    define R_BITS 10627
+#    define DECODER_NUM_ITER 3
+#  elif (RELIABILITY_LEVEL == 7)
+#    define R_BITS 10499
+#    define DECODER_NUM_ITER 4
+#  endif
+
 #  define D      71
 #  define T      134
 
@@ -40,7 +54,18 @@
 #  define BLOCK_BITS 16384
 
 #elif(LEVEL == 3)
-#  define R_BITS 24659
+
+#  if (RELIABILITY_LEVEL == 5)
+#    define R_BITS 20233
+#    define DECODER_NUM_ITER 3
+#  elif (RELIABILITY_LEVEL == 6)
+#    define R_BITS 20107
+#    define DECODER_NUM_ITER 4
+#  elif (RELIABILITY_LEVEL == 7)
+#    define R_BITS 20261
+#    define DECODER_NUM_ITER 4
+#  endif
+
 #  define D      103
 #  define T      199
 

@@ -1,8 +1,9 @@
-Additional implementation of BIKE (Bit Flipping Key Encapsulation) 
+Additional implementation of Lean-BIKE (Bit Flipping Key Encapsulation) 
 ------------------------------------------------------------------
 
-This package is an "Additional Optimized" implementation of the 
-Key Encapsulation Mechanism (KEM) [BIKE](https://bikesuite.org). 
+This package is an "Additional Optimized" implementation
+of a IND-CPA secure version of Key Encapsulation Mechanism (KEM) [BIKE](https://bikesuite.org),
+intended to be used only with ephemeral keys. This version of BIKE was presented at the NIST 5th PQC Standardization Conference (April 10-12, 2024): [A lean BIKE KEM design for ephemeral key agreement](https://csrc.nist.gov/csrc/media/Events/2024/fifth-pqc-standardization-conference/documents/papers/a-lean-bike-kem.pdf).
 
 It is developed and maintained solely by the DGK team that consists of
 Nir Drucker, Shay Gueron, and Dusan Kostic.
@@ -10,9 +11,6 @@ Nir Drucker, Shay Gueron, and Dusan Kostic.
 BIKE is a KEM submission to the [Post-Quantum Cryptography Standardization project](https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization). At this point in time, NIST is considering BIKE as a fourth round candidate in the PQC Standardization process ([link](https://csrc.nist.gov/News/2022/pqc-candidates-to-be-standardized-and-round-4)).
 
 The official BIKE website is: https://bikesuite.org. 
-This package corresponds to the Round 4 specification document
-["BIKE_Spec_2022.10.10.1.pdf"](https://bikesuite.org/files/v5.0/BIKE_Spec.2022.10.10.1.pdf) (Spec v.5.1),
-but also includes other options that the DGK team deems as useful (via compilation flags).
 
 The package includes implementations for several CPU architectures.
 In particular, it can be compiled for a 64-bit ARM and for x86 processors.
@@ -113,7 +111,6 @@ Additional compilation flags:
  - OPENSSL_DIR              - Set the path of the OpenSSL include/lib
                               directories (required only if OpenSSL is not
                               installed in usual directories).
- - BIND_PK_AND_M            - Bind the public key and the message in encapsulation.
  - USE_AES_AND_SHA2         - Use AES and SHA2 instead of SHA3 and SHAKE.
  - UNIFORM_SAMPLING         - Use uniform sampling for private key and error vector
                               instead of the biased sampling introduced in round 4.
@@ -145,7 +142,7 @@ This will run all the sanitizers.
 
 The package was compiled and tested with clang (version 10.0.0) in 64-bit mode,
 on a Linux (Ubuntu 20.04) on Intel Xeon (x86) and Graviton 2 (ARM) processors.
-The x86 tests are done with Intel SDE which can emulate any Intel CPU.  
+The x86 tests are done with Intel SDE which can emulate any Intel CPU.
 Compilation on other platforms may require some adjustments.
 
 KATs
@@ -154,56 +151,7 @@ The KATs are located in the `tests/kats/` directory.
 
 Performance
 ----
-The performance of different versions of BIKE measured on two CPUs, one with vector-PCLMUL support and the other one without. The numbers represent average number of processor cycles required to complete each operation.
-
-Measurements on Intel(R) Xeon(R) Platinum 8175M CPU @ 2.50GHz (_doesn't_ support vector-PCLMUL):
-```
-  L1    |      a      |      b      |      c      |      d      |      e      |
-------------------------------------------------------------------------------|
-keygen  |    602,189  |    589,401  |    595,447  |    603,593  |    604,667  |
-encaps  |    129,970  |     97,967  |    114,787  |    133,078  |    158,862  |
-decaps  |  1,184,546  |  1,135,597  |  1,157,761  |  1,190,043  |  1,214,234  |
-
-  L3    |      a      |      b      |      c      |      d      |      e      |
-------------------------------------------------------------------------------|
-keygen  |   1,824,934 |  1,823,910  |  1,824,686  |  1,828,516  |  1,833,566  |
-encaps  |     286,974 |    223,367  |    254,540  |    285,981  |    339,143  |
-decaps  |   3,956,456 |  3,887,439  |  3,939,558  |  3,963,570  |  3,977,745  |
-
-  L5    |      a      |      b      |      c      |      d      |      e      |
-------------------------------------------------------------------------------|
-keygen  |   4,559,483 |  4,555,773  |  4,566,744  |  4,603,036  |  4,583,101  |
-encaps  |     564,340 |    459,785  |    510,131  |    548,016  |    623,044  |
-decaps  |   9,779,774 |  9,738,607  |  9,650,434  |  9,770,514  |  9,836,698  |
-```
-
-Measurements on Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz (supports vector-PCLMUL):
-```
-  L1    |      a      |      b      |      c      |      d      |      e      |
-----------------------------------------------------------------|--------------
-keygen  |    370,689  |    366,456  |    365,549  |    370,630  |    369,250  |
-encaps  |     95,512  |     74,838  |     87,397  |     99,579  |    119,274  |
-decaps  |  1,194,070  |  1,177,511  |  1,190,863  |  1,201,765  |  1,222,844  |
-
-  L3    |      a      |      b      |      c      |      d      |      e      |
-------------------------------------------------------------------------------|
-keygen  |  1,064,040  |  1,049,339  |  1,058,253  |  1,063,406  |  1,053,004  |
-encaps  |    204,959  |    164,422  |    185,810  |    209,930  |    243,466  |
-decaps  |  3,531,790  |  3,512,350  |  3,491,114  |  3,544,996  |  3,571,774  |
-
-  L5    |      a      |      b      |      c      |      d      |      e      |
-------------------------------------------------------------------------------|
-keygen  |  2,629,963  |  2,643,342  |  2,653,044  |  2,614,496  |  2,625,225  |
-encaps  |    399,718  |    325,787  |    363,979  |    397,391  |    463,783  |
-decaps  |  9,187,778  |  9,106,695  |  9,150,513  |  9,181,999  |  9,304,213  |
-```
-
-where:
-- (a) Round 4 (Spec v5.1)   BIKE (with biased sampling)
-- (b) Round 3 (Spec v4.2)   BIKE + USE_AES_AND_SHA2
-- (c) Round 3 (Spec v4.2)   BIKE + USE_AES_AND_SHA2 + BIND_PK_AND_M
-- (d) Round 3 (Spec v4.2)   BIKE + SHA3_AND_SHAKE
-- (e) Round 3 (Spec v4.2)   BIKE + SHA3_AND_SHAKE + BIND_PK_AND_M 
+The performance of Lean-BIKE is given in Tables 1 and 2 of (A lean BIKE KEM design for ephemeral key agreement)[https://csrc.nist.gov/csrc/media/Events/2024/fifth-pqc-standardization-conference/documents/papers/a-lean-bike-kem.pdf)]
 
 Sampling fixed-weight vectors
 ------------------

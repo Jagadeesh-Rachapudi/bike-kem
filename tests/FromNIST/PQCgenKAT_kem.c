@@ -28,7 +28,7 @@ void
 fprintBstr(FILE *fp, const char *S, const unsigned char *A, unsigned long long L);
 
 int
-main()
+main(void)
 {
   char          fn_req[32], fn_rsp[32];
   FILE *        fp_req, *fp_rsp;

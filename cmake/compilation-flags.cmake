@@ -78,10 +78,12 @@ if(LEVEL)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLEVEL=${LEVEL}")
 endif()
 
+option(RELIABILITY_LEVEL "Reliability level" 5)
 if(RELIABILITY_LEVEL)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DRELIABILITY_LEVEL=${RELIABILITY_LEVEL}")
 endif()
 
+option(UNIFORM_SAMPLING "Uniform sampling" ON)
 if(UNIFORM_SAMPLING)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUNIFORM_SAMPLING=1")
 endif()
@@ -90,7 +92,8 @@ if(BIND_PK_AND_M)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBIND_PK_AND_M=1")
 endif()
 
-# SHA3 is the default in Round-4 BIKE
+# SHA2 is the default in Lean-BIKE
+option(USE_AES_AND_SHA2 "Use AES and SHA2" ON)
 if(NOT USE_AES_AND_SHA2)
   set(USE_SHA3_AND_SHAKE ON)
 endif()

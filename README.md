@@ -111,9 +111,6 @@ Additional compilation flags:
  - OPENSSL_DIR              - Set the path of the OpenSSL include/lib
                               directories (required only if OpenSSL is not
                               installed in usual directories).
- - USE_AES_AND_SHA2         - Use AES and SHA2 instead of SHA3 and SHAKE.
- - UNIFORM_SAMPLING         - Use uniform sampling for private key and error vector
-                              instead of the biased sampling introduced in round 4.
  - FIXED_SEED               - Using a fixed seed, for debug purposes.
  - RDTSC                    - Benchmark the algorithm (results in CPU cycles).
  - VERBOSE                  - Add verbose (level: 1-4 default: 1).

@@ -10,6 +10,16 @@
 #include "gf2x.h"
 #include "sampling.h"
 #include "sha.h"
+#include <stdio.h> 
+#include <inttypes.h> 
+#include <stdlib.h> 
+#include <string.h>
+#include <stdint.h>
+#include <inttypes.h> 
+
+#define SUCCESS 0
+#define FAILURE -1
+
 
 // m_t and seed_t have the same size and thus can be considered
 // to be of the same type. However, for security reasons we distinguish
@@ -212,19 +222,42 @@ int crypto_kem_enc(OUT unsigned char *     ct,
   pk_t l_pk;
   ct_t l_ct;
 
-  DEFER_CLEANUP(m_t m, m_cleanup);
+  DEFER_CLEANUP(m_t m, m_cleanup);  // Assuming 'm' is a struct with a 'raw' field
   DEFER_CLEANUP(ss_t l_ss, ss_cleanup);
   DEFER_CLEANUP(seeds_t seeds = {0}, seeds_cleanup);
   DEFER_CLEANUP(pad_e_t e, pad_e_cleanup);
 
   // Copy the data from the input buffer. This is required in order to avoid
-  // alignment issues on non x86_64 processors.
+  // alignment issues on non-x86_64 processors.
   bike_memcpy(&l_pk, pk, sizeof(l_pk));
 
-  get_seeds(&seeds);
+  // Open the file 'message.txt'
+  FILE *file = fopen("/home/jagadeesh/bike-kem/message.txt", "r");
+  if (!file) {
+      fprintf(stderr, "Error: Unable to open message.txt\n");
+      return FAILURE;
+  }
 
-  // e = H(m) = H(seed[0])
-  convert_seed_to_m_type(&m, &seeds.seed[0]);
+  // Parse the file and populate m.raw with values
+  size_t m_size = sizeof(m.raw) / sizeof(m.raw[0]);
+  for (size_t i = 0; i < m_size; i++) {
+      if (fscanf(file, "%hhu", &m.raw[i]) != 1) {
+          fprintf(stderr, "Error reading value at index %zu from message.txt\n", i);
+          fclose(file);
+          return FAILURE;
+      }
+  }
+
+  // Close the file
+  fclose(file);
+
+  // Print the message array for verification
+  printf("Message read from file:\n");
+  for (size_t i = 0; i < m_size; i++) {
+      printf("m[%zu] = %u\n", i, (unsigned int)m.raw[i]);
+  }
+
+  // Proceed with the original functionality
   GUARD(function_h(&e, &m, &l_pk));
 
   // Calculate the ciphertext
@@ -241,6 +274,7 @@ int crypto_kem_enc(OUT unsigned char *     ct,
 
   return SUCCESS;
 }
+
 
 // Decapsulate - ct is a key encapsulation message (ciphertext),
 //               sk is the private key,
@@ -272,6 +306,12 @@ int crypto_kem_dec(OUT unsigned char *     ss,
   e_prime.val[1].val = e.val[1];
 
   GUARD(reencrypt(&m_prime, &e_prime, &l_ct));
+
+  // Print 'm.raw' (assuming m.raw is an array of uint64_t)
+  size_t m_size = sizeof(m_prime.raw) / sizeof(m_prime.raw[0]);  // Calculate number of elements
+  for (size_t i = 0; i < m_size; i++) {
+      printf("m[%zu] = %" PRIu64 "\n", i, (uint64_t)m_prime.raw[i]);  // Print each element of m.raw
+  }
 
   // Check if H(m') is equal to (e0', e1')
   // (in constant-time)

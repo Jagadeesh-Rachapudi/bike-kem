@@ -19,6 +19,45 @@ int file_is_empty(const char *filename) {
     return 1; // Treat non-existent files as empty
 }
 
+// Robust file write with proper flushing and error checks
+int robust_write(const char *filename, const void *data, size_t size) {
+    FILE *file = fopen(filename, "wb");
+    if (!file) {
+        printf("Error: Unable to open %s for writing!\n", filename);
+        return 0;
+    }
+
+    size_t written = fwrite(data, 1, size, file);
+    if (written != size) {
+        printf("Error: Failed to write full data to %s (written %zu, expected %zu)!\n", filename, written, size);
+        fclose(file);
+        return 0;
+    }
+
+    fflush(file);  // Ensure all data is written to disk
+    fclose(file);
+    return 1;
+}
+
+// Robust file read with error checks
+int robust_read(const char *filename, void *data, size_t size) {
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        printf("Error: Unable to open %s for reading!\n", filename);
+        return 0;
+    }
+
+    size_t read = fread(data, 1, size, file);
+    if (read != size) {
+        printf("Error: Failed to read full data from %s (read %zu, expected %zu)!\n", filename, read, size);
+        fclose(file);
+        return 0;
+    }
+
+    fclose(file);
+    return 1;
+}
+
 int main() {
     printf("Starting custom test at BIKE Level 5...\n");
 
@@ -29,7 +68,7 @@ int main() {
     uint8_t *ss_enc = (uint8_t *)malloc(SHARED_SECRET_BYTES);
     uint8_t *ss_dec = (uint8_t *)malloc(SHARED_SECRET_BYTES);
 
-    // Add memset to initialize buffers to zero
+    // Initialize memory
     memset(pk, 0, PUBLIC_KEY_BYTES);
     memset(sk, 0, SECRET_KEY_BYTES);
     memset(ct, 0, CIPHERTEXT_BYTES);
@@ -44,25 +83,19 @@ int main() {
     printf("Memory allocation successful.\n");
 
     // Check if sk.txt and pk.txt are empty
-    FILE *sk_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/sk.txt", "rb");
-    FILE *pk_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt", "rb");
-
     int sk_empty = file_is_empty("/home/jagadeesh/bike-kem/Exposed_Files/sk.txt");
     int pk_empty = file_is_empty("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt");
 
-    if (sk_file && pk_file && !sk_empty && !pk_empty) {
-        // Load keys from files and check for fread return value
-        if (fread(pk, 1, PUBLIC_KEY_BYTES, pk_file) != PUBLIC_KEY_BYTES) {
-            printf("Error: Failed to read full public key from pk.txt!\n");
-            fclose(pk_file);
+    if (!sk_empty && !pk_empty) {
+        // Load keys from files
+        if (!robust_read("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt", pk, PUBLIC_KEY_BYTES)) {
+            printf("Error loading public key from pk.txt.\n");
             goto cleanup;
         }
-        if (fread(sk, 1, SECRET_KEY_BYTES, sk_file) != SECRET_KEY_BYTES) {
-            printf("Error: Failed to read full secret key from sk.txt!\n");
-            fclose(sk_file);
+        if (!robust_read("/home/jagadeesh/bike-kem/Exposed_Files/sk.txt", sk, SECRET_KEY_BYTES)) {
+            printf("Error loading secret key from sk.txt.\n");
             goto cleanup;
         }
-
         printf("Keys loaded from sk.txt and pk.txt.\n");
     } else {
         // Generate a new key pair
@@ -70,40 +103,19 @@ int main() {
             printf("Key generation failed!\n");
             goto cleanup;
         }
-
         printf("Key generation successful.\n");
 
-        // Save public key to pk.txt
-        FILE *pk_write_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt", "wb");
-        if (!pk_write_file) {
-            printf("Error: Unable to open pk.txt for writing!\n");
+        // Save keys to files
+        if (!robust_write("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt", pk, PUBLIC_KEY_BYTES)) {
+            printf("Error saving public key to pk.txt.\n");
             goto cleanup;
         }
-        if (fwrite(pk, 1, PUBLIC_KEY_BYTES, pk_write_file) != PUBLIC_KEY_BYTES) {
-            printf("Error: Failed to write full public key to pk.txt!\n");
-            fclose(pk_write_file);
+        if (!robust_write("/home/jagadeesh/bike-kem/Exposed_Files/sk.txt", sk, SECRET_KEY_BYTES)) {
+            printf("Error saving secret key to sk.txt.\n");
             goto cleanup;
         }
-        fclose(pk_write_file);
-        printf("Public key successfully written to pk.txt.\n");
-
-        // Save secret key to sk.txt
-        FILE *sk_write_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/sk.txt", "wb");
-        if (!sk_write_file) {
-            printf("Error: Unable to open sk.txt for writing!\n");
-            goto cleanup;
-        }
-        if (fwrite(sk, 1, SECRET_KEY_BYTES, sk_write_file) != SECRET_KEY_BYTES) {
-            printf("Error: Failed to write full secret key to sk.txt!\n");
-            fclose(sk_write_file);
-            goto cleanup;
-        }
-        fclose(sk_write_file);
-        printf("Secret key successfully written to sk.txt.\n");
+        printf("Keys successfully saved to sk.txt and pk.txt.\n");
     }
-
-    fclose(sk_file);
-    fclose(pk_file);
 
     // Encapsulation
     if (crypto_kem_enc(ct, ss_enc, pk) != 0) {
@@ -114,21 +126,12 @@ int main() {
     printf("Encapsulation successful.\n");
 
     // Save ciphertext to file
-    FILE *cipher_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/cipher.txt", "wb");
-    if (!cipher_file) {
-        printf("Error: Unable to open cipher.txt for writing!\n");
-        goto cleanup;
-    }
-
-    size_t written = fwrite(ct, 1, CIPHERTEXT_BYTES, cipher_file);
-    if (written != CIPHERTEXT_BYTES) {
-        printf("Error: Failed to write full ciphertext to cipher.txt!\n");
-        fclose(cipher_file);
+    if (!robust_write("/home/jagadeesh/bike-kem/Exposed_Files/cipher.txt", ct, CIPHERTEXT_BYTES)) {
+        printf("Error saving ciphertext to cipher.txt.\n");
         goto cleanup;
     }
 
     printf("Ciphertext successfully written to cipher.txt.\n");
-    fclose(cipher_file);
 
     // Decapsulation
     if (crypto_kem_dec(ss_dec, ct, sk) != 0) {
@@ -146,7 +149,7 @@ int main() {
     }
 
 cleanup:
-    // Free allocated memory with checks
+    // Free allocated memory
     // if (pk) free(pk);
     // if (sk) free(sk);
     // if (ct) free(ct);

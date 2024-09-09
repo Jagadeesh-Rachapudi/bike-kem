@@ -1,13 +1,23 @@
 #include <stdio.h>
 #include <string.h>  // for memcmp and memset
 #include <stdlib.h>  // for malloc, free
-#include "kem.h"     // Include necessary headers from BIKE
+#include <sys/stat.h>  // for checking file size
+#include "kem.h"      // Include necessary headers from BIKE
 
 // Adjust these sizes based on the actual BIKE Level 5 requirements
 #define PUBLIC_KEY_BYTES 4992
 #define SECRET_KEY_BYTES 60000  // Adjusted size
 #define CIPHERTEXT_BYTES 5184
 #define SHARED_SECRET_BYTES 32
+
+// Helper function to check if a file is empty
+int file_is_empty(const char *filename) {
+    struct stat st;
+    if (stat(filename, &st) == 0) {
+        return st.st_size == 0;
+    }
+    return 1; // Treat non-existent files as empty
+}
 
 int main() {
     printf("Starting custom test at BIKE Level 5...\n");
@@ -33,13 +43,67 @@ int main() {
 
     printf("Memory allocation successful.\n");
 
-    // Generate a key pair
-    if (crypto_kem_keypair(pk, sk) != 0) {
-        printf("Key generation failed!\n");
-        goto cleanup;
+    // Check if sk.txt and pk.txt are empty
+    FILE *sk_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/sk.txt", "rb");
+    FILE *pk_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt", "rb");
+
+    int sk_empty = file_is_empty("/home/jagadeesh/bike-kem/Exposed_Files/sk.txt");
+    int pk_empty = file_is_empty("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt");
+
+    if (sk_file && pk_file && !sk_empty && !pk_empty) {
+        // Load keys from files and check for fread return value
+        if (fread(pk, 1, PUBLIC_KEY_BYTES, pk_file) != PUBLIC_KEY_BYTES) {
+            printf("Error: Failed to read full public key from pk.txt!\n");
+            fclose(pk_file);
+            goto cleanup;
+        }
+        if (fread(sk, 1, SECRET_KEY_BYTES, sk_file) != SECRET_KEY_BYTES) {
+            printf("Error: Failed to read full secret key from sk.txt!\n");
+            fclose(sk_file);
+            goto cleanup;
+        }
+
+        printf("Keys loaded from sk.txt and pk.txt.\n");
+    } else {
+        // Generate a new key pair
+        if (crypto_kem_keypair(pk, sk) != 0) {
+            printf("Key generation failed!\n");
+            goto cleanup;
+        }
+
+        printf("Key generation successful.\n");
+
+        // Save public key to pk.txt
+        FILE *pk_write_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt", "wb");
+        if (!pk_write_file) {
+            printf("Error: Unable to open pk.txt for writing!\n");
+            goto cleanup;
+        }
+        if (fwrite(pk, 1, PUBLIC_KEY_BYTES, pk_write_file) != PUBLIC_KEY_BYTES) {
+            printf("Error: Failed to write full public key to pk.txt!\n");
+            fclose(pk_write_file);
+            goto cleanup;
+        }
+        fclose(pk_write_file);
+        printf("Public key successfully written to pk.txt.\n");
+
+        // Save secret key to sk.txt
+        FILE *sk_write_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/sk.txt", "wb");
+        if (!sk_write_file) {
+            printf("Error: Unable to open sk.txt for writing!\n");
+            goto cleanup;
+        }
+        if (fwrite(sk, 1, SECRET_KEY_BYTES, sk_write_file) != SECRET_KEY_BYTES) {
+            printf("Error: Failed to write full secret key to sk.txt!\n");
+            fclose(sk_write_file);
+            goto cleanup;
+        }
+        fclose(sk_write_file);
+        printf("Secret key successfully written to sk.txt.\n");
     }
 
-    printf("Key generation successful.\n");
+    fclose(sk_file);
+    fclose(pk_file);
 
     // Encapsulation
     if (crypto_kem_enc(ct, ss_enc, pk) != 0) {
@@ -50,7 +114,7 @@ int main() {
     printf("Encapsulation successful.\n");
 
     // Save ciphertext to file
-    FILE *cipher_file = fopen("cipher.txt", "wb");
+    FILE *cipher_file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/cipher.txt", "wb");
     if (!cipher_file) {
         printf("Error: Unable to open cipher.txt for writing!\n");
         goto cleanup;
@@ -83,11 +147,11 @@ int main() {
 
 cleanup:
     // Free allocated memory with checks
-    // if (pk) { free(pk); pk = NULL; }
-    // if (sk) { free(sk); sk = NULL; }
-    // if (ct) { free(ct); ct = NULL; }
-    // if (ss_enc) { free(ss_enc); ss_enc = NULL; }
-    // if (ss_dec) { free(ss_dec); ss_dec = NULL; }
+    // if (pk) free(pk);
+    // if (sk) free(sk);
+    // if (ct) free(ct);
+    // if (ss_enc) free(ss_enc);
+    // if (ss_dec) free(ss_dec);
 
     return 0;
 }

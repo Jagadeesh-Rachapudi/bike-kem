@@ -42,6 +42,23 @@ int main() {
 
     printf("Encapsulation successful.\n");
 
+    // Save ciphertext to file
+    FILE *cipher_file = fopen("cipher.txt", "wb");
+    if (!cipher_file) {
+        printf("Error: Unable to `open cipher.txt for writing!\n");
+        goto cleanup;
+    }
+
+    size_t written = fwrite(ct, 1, CIPHERTEXT_BYTES, cipher_file);
+    if (written != CIPHERTEXT_BYTES) {
+        printf("Error: Failed to write full ciphertext to cipher.txt!\n");
+        fclose(cipher_file);
+        goto cleanup;
+    }
+
+    printf("Ciphertext successfully written to cipher.txt.\n");
+    fclose(cipher_file);
+
     // Decapsulation
     if (crypto_kem_dec(ss_dec, ct, sk) != 0) {
         printf("Decapsulation failed!\n");
@@ -50,7 +67,6 @@ int main() {
 
     printf("Decapsulation successful.\n");
 
-    
     // Verify that the encapsulated and decapsulated shared secrets are the same
     if (memcmp(ss_enc, ss_dec, SHARED_SECRET_BYTES) == 0) {
         printf("Success! Decapsulated key matches encapsulated key.\n");

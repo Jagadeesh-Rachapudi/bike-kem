@@ -86,7 +86,7 @@ int main() {
     int sk_empty = file_is_empty("/home/jagadeesh/bike-kem/Exposed_Files/sk.txt");
     int pk_empty = file_is_empty("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt");
 
-    if (!sk_empty && !pk_empty) {
+    if (!(!sk_empty && !pk_empty)) {
         // Load keys from files
         if (!robust_read("/home/jagadeesh/bike-kem/Exposed_Files/pk.txt", pk, PUBLIC_KEY_BYTES)) {
             printf("Error loading public key from pk.txt.\n");

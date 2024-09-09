@@ -1,14 +1,29 @@
-#include <stdio.h>
 #include <string.h>  // for memcmp and memset
 #include <stdlib.h>  // for malloc, free
 #include <sys/stat.h>  // for checking file size
-#include "kem.h"      // Include necessary headers from BIKE
+#include "bike_defs.h"
+
+#include "kem.h"
+#include "decode.h"
+#include "gf2x.h"
+#include "sampling.h"
+#include "sha.h"
+#include <stdio.h> 
+#include <inttypes.h> 
+#include <stdlib.h> 
+#include <string.h>
+#include <stdint.h>
+#include <inttypes.h> 
+
 
 // Adjust these sizes based on the actual BIKE Level 5 requirements
 #define PUBLIC_KEY_BYTES 4992
 #define SECRET_KEY_BYTES 60000  // Adjusted size
 #define CIPHERTEXT_BYTES 5184
 #define SHARED_SECRET_BYTES 32
+
+#define SUCCESS 0
+#define FAILURE -1
 
 // Helper function to check if a file is empty
 int file_is_empty(const char *filename) {
@@ -75,6 +90,9 @@ int main() {
     memset(ss_enc, 0, SHARED_SECRET_BYTES);
     memset(ss_dec, 0, SHARED_SECRET_BYTES);
 
+    DEFER_CLEANUP(m_t m, m_cleanup); 
+    DEFER_CLEANUP(m_t m_temp, m_cleanup); 
+
     if (!pk || !sk || !ct || !ss_enc || !ss_dec) {
         printf("Memory allocation failed!\n");
         return 1;
@@ -117,11 +135,57 @@ int main() {
         printf("Keys successfully saved to sk.txt and pk.txt.\n");
     }
 
-    // Encapsulation
-    if (crypto_kem_enc(ct, ss_enc, pk) != 0) {
-        printf("Encapsulation failed!\n");
-        goto cleanup;
+    // Open the file 'message.txt'
+    FILE *file = fopen("/home/jagadeesh/bike-kem/Exposed_Files/message.txt", "r");
+    if (!file) {
+        fprintf(stderr, "Error: Unable to open message.txt\n");
+        return FAILURE;
     }
+
+    // unsigned char m_raw[M_BYTES];  // Buffer to hold chunks of 32 bytes
+    size_t read_count = 0;
+
+    // Loop through the file and read data in chunks of M_BYTES
+    while (1) {
+        // Clear the buffer for every new chunk
+
+        // Read up to M_BYTES values from the file
+        for (read_count = 0; read_count < M_BYTES; read_count++) {
+            m_temp.raw[read_count]=0;
+            if (fscanf(file, "%hhu", &m_temp.raw[read_count]) != 1) {
+                break;  // Stop reading if we reach EOF or encounter an error
+            }
+        }
+
+        // If no more data was read, break the loop
+        if (read_count == 0) {
+            break;
+        }
+
+        // If we read less than M_BYTES, padding has already been done with '0's by memset
+        // Proceed with encryption using m_raw as the input data (of size M_BYTES)
+        // Note: You will need to adapt m_raw to work with the m structure used in your encapsulation call
+
+        // Create a temporary structure `m` that uses `m_raw` and call the encapsulation function
+        // struct { unsigned char raw[M_BYTES]; } m;
+        memcpy(m.raw, m_temp.raw, M_BYTES);  // Copy the buffer to m.raw
+
+        // Encapsulation
+        if (crypto_kem_enc(ct, ss_enc, pk, m) != 0) {
+            printf("Encapsulation failed!\n");
+            fclose(file);
+            return FAILURE;
+        }
+
+        // Break if the last chunk read was less than M_BYTES, indicating EOF
+        if (read_count < M_BYTES) {
+            break;
+        }
+    }
+
+    // Close the file
+    fclose(file);
+
 
     printf("Encapsulation successful.\n");
 
